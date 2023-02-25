@@ -1,0 +1,23 @@
+# Python Virtual env
+.venv
+
+# CPython cache thing
+**/__pycache__
+
+# You want to make sure that dependency info are available
+!requirements.txt
+!requirements-dev.txt
+
+# VSCode 
+.vscode
+
+# Runtime directory used by 功德提取机 itself; you don't want leak it out
+data
+
+# You can put your personal things in this directory
+private
+
+# Other things that usually doesn't belong to a remote repository
+*.gz
+*.tar
+*.zip

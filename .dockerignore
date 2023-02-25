@@ -1,0 +1,5 @@
+.venv
+.vscode
+private
+
+**/__pycache__
