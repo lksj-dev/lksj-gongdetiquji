@@ -23,6 +23,7 @@ with open('./data/uploader.json') as f:
 history=sqlite3.connect('./data/history.db')
 
 history.execute('CREATE TABLE IF NOT EXISTS history (timestamp BIGINT, msg_id VARCHAR(100), src_url TEXT, paste_url TEXT);')
+history.execute('CREATE TABLE IF NOT EXISTS upload_perm (guild_id TEXT, subject TEXT);')
 
 def create_status_card() -> CardMessage:
     total_pastes_served=history.execute('SELECT COUNT(*) FROM history;').fetchone()[0]
@@ -58,6 +59,39 @@ async def on_bot_started(b: Bot):
     # Start playing a "game"
     await b.client.update_playing_game(890880) # JetBrains Aqua
 
+    add_keyword={ '+', '允许', '添加', '增加' }
+    remove_keyword={ '-', '禁止', '删除', '移除' }
+
+    @bot.command(name='功德提取机显式上传权限', prefixes=['////'])
+    async def explicit_upload_perm(msg: Message, op: str, subject: str):
+        if msg.author == msg.ctx.guild.master_id:
+            if subject.startswith('(rol)') and subject.endswith('(rol)'):
+                subject=subject.removeprefix('(rol)').removesuffix('(rol)')
+            elif subject.startswith('(met)') and subject.endswith('(met)'):
+                subject=subject.removeprefix('(met)').removesuffix('(met)')
+            else:
+                await msg.reply('第二个参数必须是 @ 某个人或 @ 某个特定角色。')
+                return
+            exists=history.execute('SELECT * FROM upload_perm WHERE guild_id = ? AND subject = ?;', 
+                (msg.ctx.guild.id, subject)).fetchone()
+            if op in add_keyword:
+                if exists:
+                    await msg.reply('该用户/角色已有强制上传日志权限，无需再次添加。')
+                else:
+                    with history:
+                        history.execute('INSERT INTO upload_perm VALUES (?, ?);', (msg.ctx.guild.id, subject))
+                    await msg.reply('指定用户/角色现在可以强制上传指定日志了。')
+            elif op in remove_keyword:
+                if exists:
+                    with history:
+                        history.execute('DELETE FROM upload_perm WHERE guild_id = ? AND subject = ?;', (msg.ctx.guild.id, subject))
+                    await msg.reply('指定用户/角色现在不能再强制上传指定日志了。')
+                else:
+                    await msg.reply('该用户/角色并无强制上传日志权限，不需要再次删除其权限。')
+
+def has_permission_to_force_upload(guild_id: str, subject_id: str):
+    return bool(history.execute('SELECT * FROM upload_perm WHERE guild_id = ? AND subject = ?;', (guild_id, subject_id)).fetchone())
+
 @bot.on_message(MessageTypes.SYS)
 async def file_watch(msg: Message):
     # Ignore bot messages
@@ -84,6 +118,9 @@ async def file_watch(msg: Message):
         Module.Section(Element.Text('**功德提取机**\n一只默默将日志或崩溃报告转存到粘贴箱上的机器人', 'kmarkdown'),
             accessory=Element.Image(bot.me.avatar), mode='left')
     ]
+    allow_force_upload=any([ has_permission_to_force_upload(msg.ctx.guild.id, str(role)) for role in msg.author.roles ])
+    if not allow_force_upload:
+        allow_force_upload=has_permission_to_force_upload(msg.ctx.guild.id, msg.author_id) or msg.ctx.guild.master_id == msg.author_id
     for card in cards:
         card: dict
         modules: list=card.get('modules', [])
@@ -93,7 +130,7 @@ async def file_watch(msg: Message):
                 src_url=m['src']
                 async with downloader.get(src_url) as resp:
                     content=await resp.read()
-                    if not self_mentioned and not allow(fname, content):
+                    if not (self_mentioned and allow_force_upload) and not allow(fname, content):
                         continue
                     for name, content, full in get_files_to_upload(fname, content):
                         paste_url=await uploader.upload(name, content)
