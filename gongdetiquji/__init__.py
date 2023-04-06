@@ -106,7 +106,7 @@ async def file_watch(msg: Message):
             cards=json.loads(msg.content)
         except:
             return
-    elif 'quote' in msg.extra:
+    elif 'quote' in msg.extra and self_mentioned:
         try:
             cards=json.loads(msg.extra['quote']['content'])
         except:
