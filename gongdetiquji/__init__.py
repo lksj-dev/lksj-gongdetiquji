@@ -63,6 +63,7 @@ async def file_watch(msg: Message):
     # Ignore bot messages
     if msg.author.bot:
         return
+    self_mentioned=bot.me.id in msg.extra['mention']
     cards=[]
     # Try parse card message. 
     # Uploaded files are represented by a card message containing file module.
@@ -71,10 +72,18 @@ async def file_watch(msg: Message):
             cards=json.loads(msg.content)
         except:
             return
-    else:
-        if bot.me.id in msg.extra['mention']:
-            await msg.reply(create_status_card(), is_temp=True)
+    elif 'quote' in msg.extra:
+        try:
+            cards=json.loads(msg.extra['quote']['content'])
+        except:
+            return
+    elif self_mentioned:
+        await msg.reply(create_status_card(), is_temp=True)
         return
+    reply=[
+        Module.Section(Element.Text('**功德提取机**\n一只默默将日志或崩溃报告转存到粘贴箱上的机器人', 'kmarkdown'),
+            accessory=Element.Image(bot.me.avatar), mode='left')
+    ]
     for card in cards:
         card: dict
         modules: list=card.get('modules', [])
@@ -84,14 +93,8 @@ async def file_watch(msg: Message):
                 src_url=m['src']
                 async with downloader.get(src_url) as resp:
                     content=await resp.read()
-                    if not allow(fname, content):
+                    if not self_mentioned and not allow(fname, content):
                         continue
-                    reply=[
-                        Module.Section(
-                            Element.Text('**功德提取机**\n一只默默将日志或崩溃报告转存到粘贴箱上的机器人', 'kmarkdown'),
-                            accessory=Element.Image(bot.me.avatar), mode='left'
-                        )
-                    ]
                     for name, content, full in get_files_to_upload(fname, content):
                         paste_url=await uploader.upload(name, content)
                         reply+=[
@@ -102,13 +105,13 @@ async def file_watch(msg: Message):
                         ]
                         with history:
                             history.execute('INSERT INTO history(timestamp, msg_id, src_url, paste_url) VALUES (?, ?, ?, ?)', (int(time.time()), msg.id, src_url, paste_url))
-                    if len(reply) > 1:
-                        for retry in range(3):
-                            try:
-                                await msg.reply(CardMessage(Card(*reply)))
-                                break
-                            except:
-                                logging.error(f'Failed to send message, retrying {retry + 1} times...')
+    if len(reply) > 1:
+        for retry in range(3):
+            try:
+                await msg.reply(CardMessage(Card(*reply)))
+                break
+            except:
+                logging.error(f'Failed to send message, retrying {retry + 1} times...')
 
 @bot.on_shutdown
 async def on_bot_terminate(b: Bot):
