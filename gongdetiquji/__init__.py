@@ -7,7 +7,7 @@ import time
 
 from aiohttp import ClientSession
 from khl import Bot, Message, MessageTypes
-from khl.card import CardMessage, Card, Element, Module
+from khl.card import CardMessage, Card, Element, Module, Types
 
 from .filter import allow
 from .processor import get_files_to_upload
@@ -137,7 +137,7 @@ async def file_watch(msg: Message):
                         reply+=[
                             Module.Divider(),
                             Module.Section(Element.Text(f'您的日志/崩溃报告已{"" if full else "部分"}转存。')),
-                            Module.ActionGroup(Element.Button('点击浏览（可能需要代理）', value=paste_url, click='link', theme='info')),
+                            Module.ActionGroup(Element.Button(Element.Text('点击浏览（可能需要代理）', Types.Text.PLAIN), value=paste_url, click='link', theme='info')),
                             Module.Context(Element.Text(f'您也可以复制链接后访问：\n[{paste_url}]({paste_url})', 'kmarkdown'))
                         ]
                         with history:
