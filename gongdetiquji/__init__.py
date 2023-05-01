@@ -132,16 +132,24 @@ async def file_watch(msg: Message):
                     content=await resp.read()
                     if not (self_mentioned and allow_force_upload) and not allow(fname, content):
                         continue
-                    for name, content, full in get_files_to_upload(fname, content):
-                        paste_url=await uploader.upload(name, content)
+                    files_to_upload, full=get_files_to_upload(fname, content)
+                    if not files_to_upload:
+                        continue
+                    upload_result=await uploader.upload(fname, files_to_upload)
+                    if upload_result.success:
+                        primary_link=next(iter(upload_result.links.values()))
                         reply+=[
                             Module.Divider(),
                             Module.Section(Element.Text(f'您的日志/崩溃报告已{"" if full else "部分"}转存。')),
-                            Module.ActionGroup(Element.Button(Element.Text('点击浏览（可能需要代理）', Types.Text.PLAIN), value=paste_url, click='link', theme='info')),
-                            Module.Context(Element.Text(f'您也可以复制链接后访问：\n[{paste_url}]({paste_url})', 'kmarkdown'))
+                            Module.ActionGroup(Element.Button(Element.Text('点击浏览（可能需要代理）', Types.Text.PLAIN), value=primary_link, click='link', theme='info')),
                         ]
+                        full_paste_list='以下是所有已上传的日志列表：'
+                        for fname, link in upload_result.links.items():
+                            full_paste_list+=f"\n  • {fname}: [{link}]({link})"
+                        reply.append(Module.Context(Element.Text(full_paste_list, 'kmarkdown')))
                         with history:
-                            history.execute('INSERT INTO history(timestamp, msg_id, src_url, paste_url) VALUES (?, ?, ?, ?)', (int(time.time()), msg.id, src_url, paste_url))
+                            for link in set(upload_result.links.values()):
+                                history.execute('INSERT INTO history(timestamp, msg_id, src_url, paste_url) VALUES (?, ?, ?, ?)', (int(time.time()), msg.id, src_url, link))
     if len(reply) > 1:
         for retry in range(3):
             try:

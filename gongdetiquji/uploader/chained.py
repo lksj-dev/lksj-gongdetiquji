@@ -1,6 +1,6 @@
-from typing import Sequence
+from typing import List, Sequence, Tuple
 
-from .base import UploaderBase
+from .base import UploaderBase, UploadResult
 
 class ChainedUploader(UploaderBase):
 
@@ -12,10 +12,10 @@ class ChainedUploader(UploaderBase):
     def __init__(self, children: Sequence[UploaderBase]):
         self.children=children
 
-    async def upload(self, fname, content) -> str:
+    async def upload(self, original_fname: str, files_to_upload: List[Tuple[str, str]]) -> UploadResult:
         for uploader in self.children:
             try:
-                return (await uploader.upload(fname, content))
+                return (await uploader.upload(original_fname, files_to_upload))
             except Exception as e:
                 print(e)
                 continue
