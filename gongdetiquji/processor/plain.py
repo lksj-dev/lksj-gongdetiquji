@@ -9,4 +9,4 @@ def process_plain_text(fname: str, content: bytes):
             return [ (fname, decoded) ], True
         else:
             logging.warn(f"Cannot guess encoding for file '{fname}', uploading cannot continue.")
-    return None
+    return None, True
