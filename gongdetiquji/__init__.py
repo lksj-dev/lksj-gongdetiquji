@@ -52,8 +52,13 @@ async def on_bot_started(b: Bot):
         # Trick khl.py to stop
         raise KeyboardInterrupt()
     # Register the graceful exiting handler, so that docker can kill the process faster
-    b.loop.add_signal_handler(signal.SIGTERM, graceful_exit)
-    b.loop.add_signal_handler(signal.SIGINT, graceful_exit)
+    try:
+        b.loop.add_signal_handler(signal.SIGTERM, graceful_exit)
+        b.loop.add_signal_handler(signal.SIGINT, graceful_exit)
+    except:
+        # This can happen if we are running on Windows. 
+        # Windows does not have the equivalent concept, so we just let it go.
+        pass
     # Fetch profile info of bot itself
     await b.fetch_me()
     # Start playing a "game"
